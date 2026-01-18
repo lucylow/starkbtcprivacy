@@ -1,9 +1,8 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, forwardRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Points, PointMaterial } from '@react-three/drei';
 import * as THREE from 'three';
 
-function Particles() {
+function ParticlesInner() {
   const particlesRef = useRef<THREE.Points>(null);
   const count = 400;
 
@@ -34,8 +33,22 @@ function Particles() {
   });
 
   return (
-    <Points ref={particlesRef} positions={positions} colors={colors}>
-      <PointMaterial
+    <points ref={particlesRef}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          count={positions.length / 3}
+          array={positions}
+          itemSize={3}
+        />
+        <bufferAttribute
+          attach="attributes-color"
+          count={colors.length / 3}
+          array={colors}
+          itemSize={3}
+        />
+      </bufferGeometry>
+      <pointsMaterial
         size={0.08}
         sizeAttenuation
         depthWrite={false}
@@ -43,36 +56,27 @@ function Particles() {
         transparent
         opacity={0.7}
       />
-    </Points>
+    </points>
   );
 }
 
-function ConnectionLines() {
+function ConnectionLinesInner() {
   const linesRef = useRef<THREE.LineSegments>(null);
 
   const geometry = useMemo(() => {
     const positions: number[] = [];
-    const lineColors: number[] = [];
 
     for (let i = 0; i < 40; i++) {
-      const start = new THREE.Vector3(
-        (Math.random() - 0.5) * 10,
-        (Math.random() - 0.5) * 10,
-        (Math.random() - 0.5) * 10
-      );
+      const startX = (Math.random() - 0.5) * 10;
+      const startY = (Math.random() - 0.5) * 10;
+      const startZ = (Math.random() - 0.5) * 10;
 
-      const end = new THREE.Vector3(
-        (Math.random() - 0.5) * 10,
-        (Math.random() - 0.5) * 10,
-        (Math.random() - 0.5) * 10
-      );
+      const endX = (Math.random() - 0.5) * 10;
+      const endY = (Math.random() - 0.5) * 10;
+      const endZ = (Math.random() - 0.5) * 10;
 
-      positions.push(start.x, start.y, start.z);
-      positions.push(end.x, end.y, end.z);
-
-      // Blue to purple colors
-      lineColors.push(0.3, 0.5, 1, 0.3);
-      lineColors.push(0.6, 0.2, 0.9, 0.3);
+      positions.push(startX, startY, startZ);
+      positions.push(endX, endY, endZ);
     }
 
     const geo = new THREE.BufferGeometry();
@@ -102,8 +106,8 @@ export default function NetworkVisualizer() {
         style={{ background: 'transparent' }}
       >
         <ambientLight intensity={0.5} />
-        <Particles />
-        <ConnectionLines />
+        <ParticlesInner />
+        <ConnectionLinesInner />
       </Canvas>
     </div>
   );
