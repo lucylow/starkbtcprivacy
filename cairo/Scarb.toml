@@ -1,11 +1,14 @@
 [package]
-name = "zephyr_dao"
+name = "zephyr_protocol"
 version = "0.1.0"
 edition = "2024_07"
-description = "Zephyr DAO governance layer for Starknet privacy stack"
+description = "Zephyr Protocol: ZK Bitcoin privacy mixer on Starknet with DAO governance"
 
 [dependencies]
 starknet = ">=2.11.0"
 
 [[target.starknet-contract]]
 casm = true
+
+[scripts]
+test = "scarb cairo-test"
