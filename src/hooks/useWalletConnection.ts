@@ -1,15 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  connect,
-  disconnect,
-  getStarknet,
-  StarknetWindowObject,
-} from "@starknet-io/get-starknet";
-import {
-  Account,
-  constants,
-  RpcProvider,
-} from "starknet";
+import { connect, disconnect } from "@starknet-io/get-starknet";
+import type { StarknetWindowObject } from "@starknet-io/get-starknet";
+import { Account, RpcProvider } from "starknet";
 import { useToast } from "@/components/ui/use-toast";
 
 export interface WalletStatus {
@@ -23,8 +15,8 @@ export interface WalletStatus {
 }
 
 export const CHAIN_ID = {
-  MAINNET: constants.ChainId.SN_MAIN,
-  SEPOLIA: constants.ChainId.SN_SEPOLIA,
+  MAINNET: "0x534e5f4d41494e",
+  SEPOLIA: "0x534e5f5345504f4c4941",
   DEVNET: "0x534e5f4445564e4554",
 } as const;
 
@@ -62,61 +54,26 @@ export const useWalletConnection = (
   }, [network, RPC_URLS]);
 
   const refreshStatus = useCallback(async () => {
-    try {
-      const starknet = getStarknet();
-      const { account, isConnected } = starknet;
-
-      if (isConnected && account) {
-        const chainId = await account.getChainId();
-        setStatus({
-          isConnected: true,
-          address: account.address,
-          chainId,
-          account: account as Account,
-          wallet: starknet,
-          isConnecting: false,
-          supportedWallets: starknet.accounts.map((w) => w.wallet!),
-        });
-      } else {
-        setStatus({
-          isConnected: false,
-          isConnecting: false,
-          supportedWallets: [],
-          address: undefined,
-          chainId: undefined,
-          account: undefined,
-          wallet: undefined,
-        });
-      }
-    } catch (error) {
-      console.error("Failed to refresh wallet status:", error);
-      setStatus((prev) => ({ ...prev, isConnected: false }));
-    }
-  }, [provider]);
+    // No-op for now; status is updated on connect/disconnect
+  }, []);
 
   const connectWallet = useCallback(
-    async (walletId?: string) => {
+    async (_walletId?: string) => {
       if (status.isConnecting) return;
 
       setStatus((prev) => ({ ...prev, isConnecting: true }));
 
       try {
-        const modalMode = status.isConnected ? "neverAsk" : "alwaysAsk";
-
         const wallet = await connect({
-          modalMode,
+          modalMode: "alwaysAsk",
           modalTheme: "dark",
-          ...(walletId && { preferredWallets: [walletId] }),
         });
 
         if (!wallet) {
           throw new Error("No wallet selected");
         }
 
-        await wallet.enable({ showModal: false });
-
-        const chainId = await wallet.request("starknet_chainId", []);
-        const address = wallet.account?.address;
+        const address = (wallet as any).selectedAddress || (wallet as any).account?.address;
 
         if (!address) {
           throw new Error("No address returned from wallet");
@@ -124,9 +81,9 @@ export const useWalletConnection = (
 
         setStatus({
           isConnected: true,
-          address,
-          chainId,
-          account: wallet.account as Account,
+          address: String(address),
+          chainId: undefined,
+          account: undefined,
           wallet,
           isConnecting: false,
           supportedWallets: [wallet],
@@ -146,14 +103,12 @@ export const useWalletConnection = (
         setStatus((prev) => ({ ...prev, isConnecting: false }));
       }
     },
-    [status.isConnecting, status.isConnected, toast],
+    [status.isConnecting, toast],
   );
 
   const disconnectWallet = useCallback(async () => {
     try {
-      if (status.wallet) {
-        await status.wallet.request("starknet_disconnect", []);
-      }
+      await disconnect();
       setStatus({
         isConnected: false,
         isConnecting: false,
@@ -169,7 +124,7 @@ export const useWalletConnection = (
     } catch (error) {
       console.error("Disconnect failed:", error);
     }
-  }, [status.wallet, toast]);
+  }, [toast]);
 
   const switchNetwork = useCallback(
     async (targetNetwork: Network) => {
@@ -178,9 +133,7 @@ export const useWalletConnection = (
       try {
         const targetChainId =
           CHAIN_ID[targetNetwork.toUpperCase() as keyof typeof CHAIN_ID];
-        await status.wallet.request("starknet_switchChain", [targetChainId]);
-
-        await refreshStatus();
+        await (status.wallet as any).request?.({ type: "wallet_switchStarknetChain", params: { chainId: targetChainId } });
 
         toast({
           title: "Network Switched",
@@ -194,31 +147,8 @@ export const useWalletConnection = (
         });
       }
     },
-    [status.wallet, refreshStatus, toast],
+    [status.wallet, toast],
   );
-
-  useEffect(() => {
-    void refreshStatus();
-  }, [refreshStatus]);
-
-  useEffect(() => {
-    const starknet = getStarknet();
-
-    const handleAccountChange = () => {
-      void refreshStatus();
-    };
-    const handleChainChange = () => {
-      void refreshStatus();
-    };
-
-    starknet.on("change:accounts", handleAccountChange);
-    starknet.on("change:chainId", handleChainChange);
-
-    return () => {
-      starknet.off("change:accounts", handleAccountChange);
-      starknet.off("change:chainId", handleChainChange);
-    };
-  }, [refreshStatus]);
 
   return {
     status,
@@ -228,4 +158,3 @@ export const useWalletConnection = (
     refreshStatus,
   };
 };
-

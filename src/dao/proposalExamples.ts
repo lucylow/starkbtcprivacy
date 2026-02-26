@@ -5,7 +5,8 @@
  * Starknet selectors: use getSelectorFromName from 'starknet' (e.g. hash.getSelectorFromName or top-level).
  */
 
-import { getSelectorFromName } from "starknet";
+import { hash } from "starknet";
+const getSelectorFromName = hash.getSelectorFromName;
 
 // --- Selectors (Starknet: hash of function name) ---
 
