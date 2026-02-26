@@ -1,32 +1,84 @@
-# Zephyr DAO (Cairo 2)
+# Zephyr Protocol (Cairo 2.11+)
 
-Governance layer for the Starknet privacy stack: proposal lifecycle, **snapshot-based voting** (`get_past_votes`), and timelock execution with per-action calldata.
+**ZK Bitcoin Privacy Mixer on Starknet** — Quantum-resistant privacy for BTC DeFi using STARK proofs.
 
-## Snapshot voting
+## Architecture
 
-- **IGovToken** requires `balance_of`, `total_supply`, and **`get_past_votes(account, block_number)`**.
-- The DAO stores `creation_block` per proposal and uses **voting power at that block** for:
-  - Proposer check in `create_proposal`
-  - Vote weight in `cast_vote`
-  - Cancel check (proposer lost power) in `cancel`
-- For tokens without checkpoints, implement `get_past_votes` as:  
-  `if block_number >= get_block_number() { balance_of(account) } else { 0 }`.  
-  For Compound-style tokens, return the checkpointed balance at `block_number`.
+```
+┌─────────────────────────────────────────────────────┐
+│                  Zephyr Protocol                     │
+├──────────────┬──────────────┬────────────────────────┤
+│ ZephyrMixer  │ ZephyrVerifier│ ZephyrMerkleTree      │
+│ (core mixer) │ (ZK proofs)  │ (commitment storage)   │
+├──────────────┴──────────────┴────────────────────────┤
+│              ZephyrDAO (governance)                   │
+└─────────────────────────────────────────────────────┘
+```
+
+### Contracts
+
+| Contract | Description |
+|----------|-------------|
+| **ZephyrMixer** | Core mixer: deposit (ERC20 + commitment), withdraw (ZK proof + nullifier). Incremental Merkle tree, fee system, pause/admin controls. |
+| **ZephyrVerifier** | ZK proof verification. STWO integration point. Validates withdrawal proofs against public inputs [root, nullifier, recipient, amount]. |
+| **ZephyrMerkleTree** | Standalone on-chain Merkle tree (depth 20, ~1M leaves). Used by root relayers and DAO governance. |
+| **ZephyrDAO** | Proposal lifecycle, snapshot-based voting, timelock execution with per-action calldata. |
+
+### Interfaces
+
+| Interface | Description |
+|-----------|-------------|
+| `IMixer` | Full mixer interface: deposit, withdraw, batch_deposit, admin functions |
+| `IVerifier` | Proof verification: verify_proof, batch_verify |
+| `IERC20` | Standard ERC20 for strkBTC/wBTC token interactions |
+| `IGovToken` | Governance token with snapshot voting (get_past_votes) |
+
+### Libraries
+
+| Library | Description |
+|---------|-------------|
+| `poseidon_utils` | Poseidon hashing: commitment generation, nullifier derivation |
+| `merkle_tree` | Merkle proof verification, zero hash computation |
 
 ## Build
 
-From this directory:
-
 ```bash
+cd cairo
 scarb build
 ```
 
-## Proposal calldata layout
+## Test
 
-- **targets**: contract addresses to call.
-- **values**: u256 per action (often `0` on Starknet).
-- **selectors**: Starknet selector per action (e.g. `getSelectorFromName('set_root')`).
-- **calldata_flattened**: concatenation of all actions’ calldata (felt252 strings).
-- **calldata_lengths**: `[len1, len2, ...]` so action `i` uses `calldata_flattened[sum(lengths[0..i]) .. sum(lengths[0..i+1])]`.
+```bash
+cd cairo
+scarb test
+```
 
-TypeScript helpers and examples (Merkle `set_root`, ERC20/DEX admin) live in **`src/dao/proposalExamples.ts`**.
+## Deploy
+
+```bash
+cd cairo
+export ADMIN_ADDRESS="0x..."
+export TOKEN_ADDRESS="0x..."  # strkBTC address
+export FEE_RECIPIENT="0x..."
+chmod +x deploy.sh
+./deploy.sh
+```
+
+## Privacy Flow
+
+1. **Deposit**: User generates `(secret, nullifier, randomness)` off-chain, computes `commitment = Poseidon(secret, nullifier, amount_low, amount_high, randomness)`, approves ERC20 spend, calls `deposit(commitment, amount_low, amount_high)`.
+
+2. **Wait**: Commitment is added to the Merkle tree. User waits for anonymity set to grow.
+
+3. **Withdraw**: User computes `nullifier_hash = Poseidon(secret, leaf_index)`, generates ZK proof showing knowledge of a valid commitment, calls `withdraw(nullifier_hash, recipient, amount, merkle_root, proof)`.
+
+4. **Verification**: Verifier contract checks the STARK proof. Nullifier is marked spent (preventing double-spend). Tokens transferred to recipient minus fee.
+
+## Security
+
+- **Double-spend prevention**: Nullifier hashes are recorded on-chain; each commitment can only be withdrawn once.
+- **Quantum resistance**: STARK proofs are not vulnerable to quantum attacks (unlike SNARKs).
+- **Non-custodial**: Users always control their funds via their secret.
+- **Fee cap**: Maximum fee is 10% (1000 bps), enforced in constructor.
+- **Historical roots**: Ring buffer of 100 roots prevents front-running attacks.
