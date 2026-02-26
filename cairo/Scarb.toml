@@ -1,0 +1,11 @@
+[package]
+name = "zephyr_dao"
+version = "0.1.0"
+edition = "2024_07"
+description = "Zephyr DAO governance layer for Starknet privacy stack"
+
+[dependencies]
+starknet = ">=2.11.0"
+
+[[target.starknet-contract]]
+casm = true
