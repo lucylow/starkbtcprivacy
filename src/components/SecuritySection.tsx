@@ -204,13 +204,17 @@ export default function SecuritySection() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="text-2xl font-bold">Live Protocol Verification</h3>
-              <p className="text-muted-foreground">Run real-time security checks on the protocol</p>
+              <p className="text-muted-foreground">
+                Run real-time security checks on the protocol without exposing any sensitive data.
+              </p>
             </div>
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={runVerification}
               disabled={isVerifying}
+              aria-busy={isVerifying}
+              aria-disabled={isVerifying}
               className={`px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-all ${
                 isVerifying
                   ? 'bg-muted cursor-not-allowed'
@@ -231,7 +235,12 @@ export default function SecuritySection() {
             </motion.button>
           </div>
 
-          <div className="bg-background rounded-xl p-6 font-mono text-sm">
+          <div
+            className="bg-background rounded-xl p-6 font-mono text-sm"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          >
             <div className="flex items-center gap-2 mb-4 text-muted-foreground">
               <Terminal className="w-4 h-4" />
               <span>zk-btc-mixer verify --all</span>

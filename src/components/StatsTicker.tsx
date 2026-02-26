@@ -24,34 +24,45 @@ export default function StatsTicker() {
   return (
     <div className="fixed top-16 left-0 right-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4">
-        <div className="flex items-center justify-between h-10">
+        <div className="flex items-center justify-between h-10" aria-label="Live mixer statistics">
           <div className="flex items-center space-x-6">
             <span className="text-xs font-medium text-muted-foreground hidden sm:block">
               Live Stats:
             </span>
 
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentStat}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="flex items-center space-x-3"
-              >
-                <CurrentIcon className="w-4 h-4 text-primary" />
-                <div className="flex items-center space-x-2">
-                  <span className="font-bold text-sm">{stats[currentStat].value}</span>
-                  <span className="text-xs text-muted-foreground hidden sm:inline">
-                    {stats[currentStat].label}
+            <div
+              className="flex items-center"
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentStat}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="flex items-center space-x-3"
+                >
+                  <CurrentIcon className="w-4 h-4 text-primary" />
+                  <div className="flex items-center space-x-2">
+                    <span className="font-bold text-sm">{stats[currentStat].value}</span>
+                    <span className="text-xs text-muted-foreground hidden sm:inline">
+                      {stats[currentStat].label}
+                    </span>
+                  </div>
+                  <span
+                    className={`text-xs font-medium ${
+                      stats[currentStat].change.startsWith('+')
+                        ? 'text-glow-green'
+                        : 'text-glow-orange'
+                    }`}
+                  >
+                    {stats[currentStat].change}
                   </span>
-                </div>
-                <span className={`text-xs font-medium ${
-                  stats[currentStat].change.startsWith('+') ? 'text-glow-green' : 'text-glow-orange'
-                }`}>
-                  {stats[currentStat].change}
-                </span>
-              </motion.div>
-            </AnimatePresence>
+                </motion.div>
+              </AnimatePresence>
+            </div>
           </div>
 
           <div className="flex items-center space-x-4 text-xs">

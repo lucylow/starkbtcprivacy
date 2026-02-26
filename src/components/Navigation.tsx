@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Shield, Menu, X, ExternalLink } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Shield, Menu, X, ExternalLink } from "lucide-react";
+import { WalletConnectButton } from "@/components/WalletConnectButton";
+import { NetworkSelector } from "@/components/NetworkSelector";
 
 const navLinks = [
-  { label: 'How It Works', href: '#how-it-works' },
-  { label: 'Features', href: '#features' },
-  { label: 'Security', href: '#security' },
-  { label: 'Docs', href: '#docs', external: true },
+  { label: "How It Works", href: "#how-it-works" },
+  { label: "Features", href: "#features" },
+  { label: "Security", href: "#security" },
+  { label: "Docs", href: "#docs", external: true },
 ];
 
 export default function Navigation() {
@@ -28,7 +30,7 @@ export default function Navigation() {
         initial={{ y: -100 }}
         animate={{ y: 0 }}
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          isScrolled ? 'glass-strong shadow-lg' : 'bg-transparent'
+          isScrolled ? "glass-strong shadow-lg" : "bg-transparent"
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -46,7 +48,7 @@ export default function Navigation() {
             </motion.a>
 
             {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center space-x-8">
+            <div className="hidden items-center space-x-8 md:flex">
               {navLinks.map((link) => (
                 <motion.a
                   key={link.label}
@@ -60,21 +62,16 @@ export default function Navigation() {
               ))}
             </div>
 
-            {/* CTA Button */}
-            <div className="hidden md:flex items-center space-x-4">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="px-6 py-2.5 bg-gradient-primary rounded-lg font-semibold shadow-glow-blue hover:shadow-glow-purple transition-shadow"
-              >
-                Launch App
-              </motion.button>
+            {/* Network + Wallet */}
+            <div className="hidden items-center space-x-3 md:flex">
+              <NetworkSelector />
+              <WalletConnectButton />
             </div>
 
             {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg hover:bg-muted transition-colors"
+              className="rounded-lg p-2 transition-colors hover:bg-muted md:hidden"
             >
               {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
@@ -89,7 +86,7 @@ export default function Navigation() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="fixed inset-x-0 top-16 z-40 glass-strong p-4 md:hidden"
+            className="glass-strong fixed inset-x-0 top-16 z-40 p-4 md:hidden"
           >
             <div className="flex flex-col space-y-4">
               {navLinks.map((link) => (
@@ -103,9 +100,10 @@ export default function Navigation() {
                   {link.external && <ExternalLink className="w-4 h-4" />}
                 </a>
               ))}
-              <button className="w-full py-3 bg-gradient-primary rounded-lg font-semibold">
-                Launch App
-              </button>
+              <div className="flex flex-col space-y-3 pt-2">
+                <NetworkSelector />
+                <WalletConnectButton className="w-full" />
+              </div>
             </div>
           </motion.div>
         )}

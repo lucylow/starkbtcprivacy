@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Code,
   Terminal,
@@ -172,11 +172,14 @@ export default function IntegrationSection() {
                 <button
                   key={index}
                   onClick={() => setActiveExample(index)}
+                  type="button"
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                     activeExample === index
                       ? 'bg-gradient-primary text-foreground'
                       : 'glass hover:bg-muted'
                   }`}
+                  aria-pressed={activeExample === index}
+                  aria-label={`Show ${example.title} example`}
                 >
                   {example.title}
                 </button>
@@ -196,7 +199,9 @@ export default function IntegrationSection() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={copyCode}
+                  type="button"
                   className="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-muted hover:bg-muted/80 transition-colors text-sm"
+                  aria-label="Copy current code example"
                 >
                   {copied ? (
                     <>
@@ -213,11 +218,20 @@ export default function IntegrationSection() {
               </div>
 
               <div className="p-4 overflow-x-auto max-h-[400px] overflow-y-auto">
-                <pre className="text-sm font-mono">
-                  <code className="text-glow-green whitespace-pre">
-                    {codeExamples[activeExample].code}
-                  </code>
-                </pre>
+                <AnimatePresence mode="wait">
+                  <motion.pre
+                    key={activeExample}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.18 }}
+                    className="text-sm font-mono"
+                  >
+                    <code className="text-glow-green whitespace-pre">
+                      {codeExamples[activeExample].code}
+                    </code>
+                  </motion.pre>
+                </AnimatePresence>
               </div>
             </div>
           </motion.div>

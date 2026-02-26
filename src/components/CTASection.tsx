@@ -75,7 +75,9 @@ export default function CTASection() {
             <motion.button
               whileHover={{ scale: 1.05, boxShadow: '0 0 50px -10px hsl(217 91% 60% / 0.8)' }}
               whileTap={{ scale: 0.95 }}
+              type="button"
               className="px-10 py-4 bg-gradient-primary rounded-xl font-bold text-lg shadow-glow-blue flex items-center justify-center gap-2 transition-all"
+              aria-label="Start mixing Bitcoin privately"
             >
               <Shield className="w-5 h-5" />
               Start Mixing Now
@@ -83,7 +85,9 @@ export default function CTASection() {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
+              type="button"
               className="px-10 py-4 glass rounded-xl font-bold text-lg hover:bg-muted transition-colors"
+              aria-label="Schedule a product demo"
             >
               Schedule Demo
             </motion.button>
