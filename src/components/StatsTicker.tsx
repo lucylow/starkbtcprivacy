@@ -1,15 +1,67 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { TrendingUp, Users, Shield, Zap } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { TrendingUp, Users, Shield, Zap } from "lucide-react";
+import { useOptionalZephyrMock } from "@/mock/zephyrMockProvider";
 
-const stats = [
-  { label: 'Total Value Mixed', value: '$42.7M', change: '+2.4%', icon: TrendingUp },
-  { label: 'Active Users', value: '15,824', change: '+124', icon: Users },
-  { label: 'Anonymity Set', value: '10.2K', change: '+256', icon: Shield },
-  { label: 'Avg. Mix Time', value: '12.4h', change: '-0.8h', icon: Zap }
+type StatIcon = typeof TrendingUp;
+
+interface StatItem {
+  label: string;
+  value: string;
+  change: string;
+  icon: StatIcon;
+}
+
+const FALLBACK_STATS: StatItem[] = [
+  { label: "Total Value Mixed", value: "$42.7M", change: "+2.4%", icon: TrendingUp },
+  { label: "Active Users", value: "15,824", change: "+124", icon: Users },
+  { label: "Anonymity Set", value: "10.2K", change: "+256", icon: Shield },
+  { label: "Avg. Mix Time", value: "12.4h", change: "-0.8h", icon: Zap },
 ];
 
 export default function StatsTicker() {
+  const mock = useOptionalZephyrMock();
+
+  const stats = useMemo<StatItem[]>(() => {
+    if (!mock) return FALLBACK_STATS;
+
+    const totalUtxos = Array.from(mock.utxosByAccount.values()).reduce(
+      (acc, list) => acc + list.length,
+      0,
+    );
+
+    const totalAccounts = mock.accounts.length;
+    const anonymitySet = mock.utxoTree.leaves.length;
+    const nftCount = mock.nfts.length;
+
+    return [
+      {
+        label: "Total UTXOs in Pool",
+        value: totalUtxos.toLocaleString(),
+        change: "+24",
+        icon: TrendingUp,
+      },
+      {
+        label: "Active Accounts",
+        value: totalAccounts.toString(),
+        change: "+2",
+        icon: Users,
+      },
+      {
+        label: "Anonymity Set Size",
+        value: anonymitySet.toLocaleString(),
+        change: "+128",
+        icon: Shield,
+      },
+      {
+        label: "NFT Access Passes",
+        value: nftCount.toString(),
+        change: "+4",
+        icon: Zap,
+      },
+    ];
+  }, [mock]);
+
   const [currentStat, setCurrentStat] = useState(0);
 
   useEffect(() => {
@@ -17,7 +69,7 @@ export default function StatsTicker() {
       setCurrentStat((prev) => (prev + 1) % stats.length);
     }, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [stats.length]);
 
   const CurrentIcon = stats[currentStat].icon;
 

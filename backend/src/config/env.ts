@@ -17,6 +17,12 @@ const envSchema = z.object({
   VERIFIER_CONTRACT_ADDRESS: z.string(),
   BTC_BRIDGE_ADDRESS: z.string(),
   MERKLE_CONTRACT_ADDRESS: z.string().optional(),
+  // Advanced privacy contracts (all optional)
+  PRIVATE_ERC20_ADDRESS: z.string().optional(),
+  PRIVATE_DEX_ADDRESS: z.string().optional(),
+  ZK_IDENTITY_ADDRESS: z.string().optional(),
+  PEDERSEN_HASH_LIB_ADDRESS: z.string().optional(),
+  POSEIDON_HASH_LIB_ADDRESS: z.string().optional(),
 
   // Cryptography
   ZK_PROVER_URL: z.string().optional(),
