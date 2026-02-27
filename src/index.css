@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 @layer base {
   :root {
     --background: 222 47% 5%;
@@ -34,6 +36,15 @@
 
     --radius: 0.75rem;
 
+    --success: 142 76% 45%;
+    --success-foreground: 210 40% 98%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 222 47% 5%;
+    --info: 199 89% 48%;
+    --info-foreground: 222 47% 5%;
+    --btc-orange: 25 95% 53%;
+    --btc-orange-foreground: 222 47% 5%;
+
     /* Custom ZK Mixer Colors */
     --glow-blue: 217 91% 60%;
     --glow-purple: 270 60% 55%;
@@ -53,7 +64,7 @@
     --shadow-glow-purple: 0 0 40px -10px hsl(270 60% 55% / 0.5);
     --shadow-glow-cyan: 0 0 40px -10px hsl(172 66% 50% / 0.5);
 
-    --sidebar-background: 222 47% 8%;
+    --sidebar-background: 222 47% 6%;
     --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 217 91% 60%;
     --sidebar-primary-foreground: 222 47% 5%;
@@ -71,13 +82,13 @@
 
   body {
     @apply bg-background text-foreground antialiased;
+    font-family: 'Space Grotesk', system-ui, sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
-  /* Custom scrollbar */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
 
   ::-webkit-scrollbar-track {
@@ -164,6 +175,12 @@
   100% { background-position: 0% 50%; }
 }
 
+@keyframes shield-pulse {
+  0% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.8; }
+}
+
 .animate-float {
   animation: float 3s ease-in-out infinite;
 }
@@ -175,4 +192,8 @@
 .animate-gradient {
   background-size: 200% 200%;
   animation: gradient-shift 8s ease infinite;
+}
+
+.animate-shield-pulse {
+  animation: shield-pulse 2s ease-in-out infinite;
 }
