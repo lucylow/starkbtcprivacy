@@ -1,371 +1,250 @@
-# Zephyr — ZK-Private Bitcoin on Starknet
+Nice — I inspected the repository and put together a drop-in, **developer-friendly README** you can paste into `README.md` (or use as a README-redraft PR). It keeps the repo’s technical depth (Cairo contracts, prover/WASM, Merkle accumulator) while adding clear diagrams, quickstart steps, and audited-safety notes.
 
-> A privacy layer / mixer for bridged BTC on Starknet: non-custodial, STARK-based, composable.
-
-> Zephyr is a non-custodial, STARK-proof based privacy layer for bridged Bitcoin on Starknet. It lets users shield bridged BTC into a privacy set (commitments in a Merkle accumulator), generate STARK proofs proving ownership/eligibility, and withdraw to arbitrary recipients without linking deposits to withdrawals. The design is composed of Cairo contracts, off-chain provers (WASM or prover pool), a Merkle alifier registry. 
+I cite the repo page I read so maintainers can verify where I pulled the base info. ([GitHub][1])
 
 ---
 
-# Table of contents
+# README (improved) — **Zephyr / starkbtcprivacy**
 
-1. [Why Zephyr? (Motivation)](#why-zephyr)
-2. [High level architecture & diagrams](#architecture)
-
-   * ASCII & mermaid diagrams
-3. [Core cryptography & data structures](#crypto)
-4. [Smart contract modules (Cairo)](#contracts)
-5. [Proof system & prover options](#prover)
-6. [User flows (deposit → wait → withdraw)](#flows)
-7. [Security analysis & known risks](#security)
-8. [Developer & integration guide (SDK, WASM, indexer)](#dev-guide)
-9. [Testing, deployment & gas notes](#testing-deploy)
-10. [Roadmap, governance & tokenomics summary](#roadmap)
-11. [Contributing, License, Contact](#contributing)
-
-> This README is long-form and technical by design — it intentionally contains architecture diagrams, circuit snippets, Cairo pseudocode, and operational guidance so a developer team can pick up the repo and start building. Much of the content below is adapted frwhere indicated. 
+> **Zephyr — ZK-Private Bitcoin on Starknet**
+> Non-custodial, STARK-proof privacy layer for bridged Bitcoin on Starknet. Shield bridged BTC into a Merkle accumulator, generate STARK ownership proofs (WASM or prover pool), and withdraw privately without linking deposits → withdrawals. ([GitHub][1])
 
 ---
 
-<a name="why-zephyr"></a>
+## Table of contents
 
-## 1) Why Zephyr? (Motivation)
-
-* When BTC is bridged onto L2s like Starknet it becomes visible on that ledger — linkable and subject to chain analysis. Zephyr aims to restore privacy for bridged BTC by providing a shieln Starknet while remaining composable with DeFi and governance. 
-* Goals:
-
-  * ers keep control of secrets; contracts do not hold private keys. 
-  * **Quantitatively private**: unonymity set, range proofs for amounts, timing/batching defenses. 
-  * **Practical**: Cairo implementatiM or prover pool), reasonable gas targets and gas-optimizations. 
+1. [Overview & Motivation](#overview--motivation)
+2. [High-level architecture (diagrams)](#high-level-architecture-diagrams)
+3. [Core cryptography & data structures](#core-cryptography--data-structures)
+4. [Smart contracts (components)](#smart-contracts-components)
+5. [Developer quickstart (run & test)](#developer-quickstart-run--test)
+6. [Deposit → Withdraw sequence (detailed)](#deposit--withdraw-sequence-detailed)
+7. [Security & safety checklist](#security--safety-checklist)
+8. [Contributing / Roadmap / Contact](#contributing--roadmap--contact)
 
 ---
 
-<a name="architecture"></a>
+## 1) Overview & motivation
 
-## 2) High level architecture & diagrams
+When BTC is bridged into L2s such as Starknet, bridge + L2 transactions are linkable via public state. Zephyr restores privacy by providing:
 
-Below are compact diagrams you can copy/paste into GitHub Markdown. Use the mermaid blocks for nicer rendering on GitHub.
+* **Client-side secret control** — secrets never posted on chain.
+* **STARK proofs** to prove membership/ownership w/out revealing secrets.
+* **Composable primitives** for wallets, DeFi, NFTs and DAO usage.
 
-### 2.1 High-level ASCII schematic
+(Repository contains Cairo contracts, front-end assets and off-chain components.) ([GitHub][1])
 
-```
-[ Bitcoin mainnet (UTXO) ]  <--bridge--  [ Bridged BTC token on Starknet ]
-                                      |
-                                      v
-                    ┌────────────────────────────────────────┐
-                    │                Zephyr                 │
-                    │  ┌─────────┐  ┌──────────┐  ┌───────┐ │
-                    │  │Deposit  │  │Merkle    │  │Verifier│ │
-                    │  │Contract │  │Accumulator│  │Contract│ │
-                    │  └──┬──────┘  └──┬───────┘  └──┬────┘ │
-                    │     │             │             │     │
-                    │  Off-chain Prover (WASM or pool)   │
-                    │  Indexer / Relayer / Prover Pool   │
-                    └────────────────────────────────────┘
-                                      |
-                                      v
-                       [ Private L2 assets / DeFi / NFTs ]
-```
+---
 
-(More detailed diagrams follow.)
+## 2) High-level architecture — diagrams
 
-### 2.2 Mermaid — component diagram
+Paste the following *Mermaid* diagrams directly into the repo README (GitHub renders them).
+
+### 2.1 Component diagram
 
 ```mermaid
 flowchart LR
-  BTC[Bitcoin mainnet UTXOs]
-  Bridge[Bridge / Wrapped BTC]
+  BTC[Bitcoin mainnet (UTXO)]
+  Bridge[Bridging / Wrapped BTC on Starknet]
   subgraph Zephyr
-    Deposit[Deposit Contract]
-    Merkle[Merkle Accumulator]
-    Verifier[STARK Verifier Contract]
-    Null[Nullifier Registry]
-    Fee[Fee Manager]
-    Governance[Zephyr DAO]
+    Deposit[DepositContract]
+    Merkle[MerkleAccumulator / MerkleAnchor]
+    Verifier[VerifierContract (STARK verify)]
+    Null[NullifierRegistry]
+    Withdrawal[WithdrawalManager]
+    Fee[FeeManager]
+    Gov[Governance / Timelock]
   end
-  Offchain[Prover (WASM / Prover Pool)\nIndexer / Relayer]
-  DeFi[Private DeFi / NFTs / DAO Apps]
+  Offchain[Off-chain: WASM Prover / ProverPool / Indexer / Relayer]
+  Apps[Composed Apps: Private DeFi / NFTs / DAOs]
 
   BTC --> Bridge --> Deposit
-  Deposit --> Merkle --> Verifier
+  Deposit --> Merkle --> Offchain
   Offchain --> Verifier
   Verifier --> Null
-  Verifier --> Fee
-  Governance --> Fee
-  Merkle --> Offchain
-  Deposit --> Offchain
-  Deposit --> DeFi
-  Verifier --> DeFi
+  Verifier --> Withdrawal
+  Withdrawal --> Apps
+  Gov --> Fee
+  Fee --> Withdrawal
 ```
 
-> This mermaid diagram maps the major contracts and off-chain components. The on-chain root + verifier are the narrow are verified on chain; sensitive secrets never leave the client. 
-
-### 2.3 Sequence: Deposit → Withdraw (mermaid)
+### 2.2 Sequence (Deposit → Withdraw)
 
 ```mermaid
 sequenceDiagram
-  participant U as User (wallet)
+  participant U as User (wallet & browser)
   participant B as Bridge
-  participant D as Deposit Contract
-  participant M as Merkle Accumulator
-  participant P as Prover (WASM / Pool)
-  participant V as Verifier Contract
-  participant N as Nullifier Registry
-  participant R as Recipient
+  participant D as DepositContract
+  participant M as MerkleAnchor
+  participant P as Off-chain Prover (WASM / Pool)
+  participant V as VerifierContract
+  participant N as NullifierRegistry
+  participant W as WithdrawalManager
 
-  U->>D: submit deposit(commitment) (via bridge token)
-  D->>M: append leaf(commitment)
-  M->>D: new_root (emit event)
-  Note right of U: Wait (anonymity set grows)
-  U->>P: request proof(secret, merkle_path, withdraw_amount)
-  P-->>U: proof (STARK)
-  U->>V: submit proof + public_inputs (root, nullifier, recipient)
-  V->>N: check_and_mark_nullifier(nullifier)
-  V->>R: release funds (transfer bridged BTC)
+  U->>B: provide BTC to bridge
+  B->>U: bridged token on Starknet
+  U->>U: generate secret, nullifier, commitment (client)
+  U->>P: compute witness & STARK proof (WASM)
+  U->>D: submit deposit(commitment, bucket)
+  D->>M: emit DepositEvent (commitment)
+  Offchain->>M: indexer appends leaf & computes root
+  Offchain->>M: set_root(newRoot)  (via relayer)
+  U->>V: withdraw(proof, publicInputs)
+  V->>N: check nullifier
+  V->>W: release funds
 ```
 
----
+> These diagrams map the primary on-chain contracts and off-chain components used by the project. The repo already contains example mermaid + ASCII diagrams — this README expands and clarifies them. ([GitHub][1])
 
-<a name="crypto"></a>
+---
 
 ## 3) Core cryptography & data structures
 
-(Condensed technical reference — copy/paste friendly)
+**Commitment / Nullifier (canonical forms)**
 
-### 3.1 Commitment & nullifier formulas
-
-* Commitment (stored as leaf in Merkle tree):
-
-```
-C = H( H(secret, nullifier) || amount || timestamp || randomness )
-```
-
-* Nullifier (prevents double spend):
-
-```
-nullifier = H(secret, "ZEPHYR_NULLIFIER" || index)
+```text
+secret := random_bytes(32)
+nullifier := H_Poseidon(secret || salt)         // prevents double-spend
+secret_hash := H_Pedersen(secret || nonce)
+commitment := Poseidon(secret_hash, amount_bucket, randomness)
 ```
 
-These formulas  the project brief and used by the Cairo circuits and contracts. 
-
-### 3.2 Merkle accumulator
-
-* Sparse Merkle tree, **depth = 20** (capacity ≈ 1,048,576 leaves).
-* Root is anchored on-membership proofs. Off-chain indexers help clients build proofs. 
-
-### 3.3 ZK proof statement (informal)
-
-Prover proves the existence of private inputs (secret, nullifier, amount, randomness, merklePath) such that:
-
-1. Commitment `C` matches hash construction.
-2. `C ∈ MerkleTree(root)` (via merkle path).
-3. `nullifier` has not been spent.
-4. `withdraw_amount :contentReference[oaicite:27]{index=27} - fee_rate)`.
-5. required delay/timing constraints satisfied. 
-
-### 3.4 Hash choices
-
-* Use **Poseidon** or **Pedersen** variants (ZK-friendly): Poseidon is faster in circuits; Pedersen is usg where appropriate. See `contracts/crypto/*` in the repo plan. 
+* **Commitment** binds secret + amount_bucket + randomness (circuit-friendly hashes).
+* **Nullifier** is derived from secret and published only during spend to block reuse.
+* **Merkle accumulator**: sparse or incremental Merkle (depth configurable; example depth = 20 → ~1M leaves).
 
 ---
 
-<a name="contracts"></a>
+## 4) Smart contracts (components & purpose)
 
-## 4) Smart contract modules (Cairo overview)
+Brief summary of core contracts in repo:
 
-This project uses Cairo 2 style contracts. The brief provides skeletons and complete psowing modules — keep these files under `contracts/` in the repo. 
+* **DepositContract** — accepts commitment events (commitment + bucket), emits `DepositEvent`.
+* **MerkleAnchor** — stores on-chain root(s); root updates are done by relayer / indexer policy.
+* **VerifierContract** — on-chain STARK verifier; verifies proofs & public inputs.
+* **NullifierRegistry** — single-use markers; `markSpent(nullifier)` prevents double-spend.
+* **WithdrawalManager** — on-chain transfer / relayer coordination to release bridged BTC.
+* **Governance / Admin** — proxy + timelock + multisig for upgrades and parameter changes.
 
-### 4.1 Module list (summaryt` — accepts bridged token deposits and records commitmen
+(These components and file directories are present in the repository.) ([GitHub][1])
 
-* `Merkle Tree Contract` — sparse Merkle accumulato
-* `ZK Verifier Contract` — verifies STARK proofs on-chain. 
-* `Withdrawal Machecks, fee calculation, nullifier registration, funds transfe
-* `Fee Manager` — fee calculation and distribution policy.  Contract` — Zephyr DAO primitives (proposals, votes, timelock). 
+---
 
-### 4.2 Example Cairo snippet (deposit/withdraw skeleton)
+## 5) Developer quickstart — local dev & tests
+
+> **Prerequisites** (examples)
+
+* Node.js (LTS), npm or bun (repo includes `bun.lockb` / `package.json`)
+* Cairo toolchain (cairo-lang) or Protostar for Cairo development
+* Starknet devnet / testnet account + wallet
+
+### Install (JS frontend + tools)
+
+```bash
+# frontend
+npm install
+# or if using bun
+# bun install
+
+# install cairo toolchain separately per your OS
+# pip install cairo-lang  (or follow protostar docs)
+```
+
+### Build & run (example)
+
+```bash
+# start local frontend (if scripts exist)
+npm run dev
+
+# compile cairo contracts (example)
+cairo-compile contracts/*.cairo --output build/compiled.json
+
+# run prover locally (WASM) — depends on project tooling
+# run tests (Cairo unit tests)
+protostar test
+```
+
+> NOTE: this repo contains `package.json` and a `cairo/` directory; update the commands to match project `scripts` (e.g. `npm run build`, `npm run start`). ([GitHub][1])
+
+---
+
+## 6) Deposit → Withdraw (detailed, atomicity properties)
+
+**Withdraw pseudocode (on-chain simplified)**
 
 ```cairo
-// contracts/Mixer.cairo (simplified skeleton)
-%lang starknet
-
-@storage_var
-func commitments_root() -> (root: felt) {}
-@storage_var
-func nullifier_spent(nullifier: felt) -> (spent: felt) {}
-
-@contract_interface
-namespace ZKBTCMixer {
-    func deposit(commitment: felt, amount: felt) -> (deposit_id: felt) {
-        // validate amount, transfer bridged token, update merkle root, emit event
-    }
-    func withdraw(root: felt, nullifier: felt, recipient: felt, amount: felt, proof: felt*) -> () {
-        // verify proof, check nullifier, transfer funds, mark nullifier
-    }
+func withdraw{
+  syscall_ptr: felt*, pedersen_ptr: HashBuiltin*
+}(
+  proof: felt*, public_inputs: PublicInputs
+) -> () {
+  // 1. validate root matches an anchored root
+  assert(public_inputs.root == MerkleAnchor.get_root());
+  // 2. verify STARK proof
+  let is_valid = Verifier.verify(proof, public_inputs);
+  assert(is_valid == 1);
+  // 3. check nullifier not spent
+  assert(!NullifierRegistry.isSpent(public_inputs.nullifier));
+  // 4. mark nullifier (atomic)
+  NullifierRegistry.markSpent(public_inputs.nullifier);
+  // 5. release funds
+  WithdrawalManager.release(public_inputs.recipient, public_inputs.amount_bucket);
 }
 ```
 
-Full contract examples and gas-opt in the brief; use them as the initial implementation reference. 
+**Atomicity requirement**: the verify + mark-nullifier + release funds must be effectively atomic on-chain; otherwise a race could allow double-spend. The Cairo contract pattern should ensure state changes only after successful verify, and revert otherwise.
 
 ---
 
-<a name="prover"></a>
+## 7) Security & safety checklist
 
-## 5) Proof system & prover options
+**Must-have patterns**
 
-Zephyr supports two primary prover paths:
+* `verify -> markNullifier -> release` as an atomic on-chain path.
+* Root updates rate-limited and gated to relayer policy / multi-sig to avoid poisoning.
+* Timelock + multisig + proxy pattern for upgrades (no admin single-key override).
+* Min deposit size / bucketization to reduce Sybil & correlation attacks.
+* External audits & formal verification for STARK circuits and Cairo contracts.
 
-1. **Client WASM prover** (browser): maximum p leave device), but CPU/time heavy (mobile devices may be slow). 
-2. **Prover Pool (off-chain workers)**: faster; may provide attestation (HSM/TLS/SGX/TPM) to reduce trust concerns; accepted by many users who cannot ry. Use signer/attestation tokens and onion-routing for privacy. 
+**Threat surfaces & mitigations**
 
-**Proof size & timing (illustrative)**: tens → hundreds KB proof size; client prove time ~5–60s (device dependent), vergeted to ~500k–800k gas per withdrawal in prototype benchmarks. 
+* *Indexer / relayer metadata leaks*: use onion relayers or ephemeral relayer keys.
+* *Prover pool trust*: provide attestation / HSM or prefer client-WASM prover for high privacy.
+* *Admin upgrades*: require timelock and multisig; document key rotation & playbooks.
 
-**Prover service design notes**:
-
-* Offer REST/queue job API for proover pool.
-* Provide attestation tokens signed byivacy-preserving relayer onion envelopes to hide IP / metadata. 
+(Adapt the repo’s existing security notes and expand during audits.) ([GitHub][1])
 
 ---
 
-<a name="flows"></a>
+## 8) Testing & gas notes
 
-## 6) User flows (deposit → wait → withdraw)
+* **Merkle depth**: recommended default 20 (≈1M leaves) — tune for project needs.
+* **Proof size**: STARKs can be tens–hundreds KB (WASM generation time: device dependent).
+* **On-chain verify cost**: optimize circuit public inputs and verifier bytecode; batch where possible.
 
-### 6.1 Deposit: public → private
+Add CI to run Cairo tests (`protostar` or `starknet-devnet` integration) and include gas regression tests.
 
-1. Client generates `secret` (32 bytes) locally.
-2. Client computes `nullifier` and `commitment`.
-3. Client sends bridged BTC token transfer to deposit contract
-4. Contract updates Merkle accumulator and emits deposit event. 
+---
 
-**Client code (TS SDK example)**:
+## 9) Contributing, governance & contact
 
-```ts
-// pseudocode (see SDK in repo)
-const secret = Zephyr.generateSecret();
-const nullifier = Zephyr.generateNullifier(secret, index);
-const commitment = Zephyr.commit(secret, nullifier, amount, randomness);
-await zephyr.deposit(commitment, amountSats);
+* **Contributing**: PRs welcome. Please run tests locally; include unit & integration tests for contract changes.
+* **Governance**: outline timelock / multisig parameters in repo docs.
+* **Contact / Support**: Open an issue or reach out to the maintainer on the repo page. ([GitHub][1])
+
+---
+
+## Appendix — copy-paste assets & snippets
+
+**Mermaid blocks** (component & sequence) — already included above; drop them into README.
+**Commitment formula** (mono block):
+
+```text
+secret := random_bytes(32)
+nullifier := H_Poseidon(secret || salt)
+secret_hash := H_Pedersen(secret || nonce)
+commitment := Poseidon(secret_hash, amount_bucket, randomness)
 ```
 
-### 6.2 Wait / accumulate
+**Verifier pseudocode (Cairo-style)** (included in section 6).
 
-* Users can choose delay options: standard (24h), high (72h), maximum (168h). Larger waiting leads to . Zephyr uses timing obfuscation and optional randomized delays. 
-
-### 6.3 Withdraw: private → clean
-
-1. Client obtains Merkle proof for its commitment (via indexer).
-2. Client generates STARK proof (WASM or prover pool) that shows knowledge of a valid commitment and that `nullifier` is unused.
-3. Client submits proof + public inputs to `Verifier` contract and requests withdrawal to `recipient`.
-4. On-chain veri writes nullifier to registry, and executes transfer (less fee). 
-
-**Partial withdrawals** are supported by proving `withdraw_amount ≤ enerating a new commitment for remaining funds inside the proof. 
-
----
-
-<a name="security"></a>
-
-## 7) Security analysis & known risks
-
-**Guarantees**
-
-* Nntrols secrets; contracts are permissionless and can be audited. 
-* ZK soundnessryptographic assurance that only legitimate withdrawals succeed. 
-
-**Attack vectors & mitigations (brief)**
-
-* **Correlation via timing/amount** zed delays, amount fuzzing (±5%), batching, partial withdrawals. 
-* **Sybil/Intersection attacks** — Mitsit, fee model to disincentive mass deposits, reputation system. 
-* **Prover pool trtestations, optional client WASM prover, relayer onion routing. 
-* **Regulatory/taint risk** — Mitigation: multipleoptional ZK proof-of-innocence tool, governance flags (careful). 
-
-**Security checklist before mainnet** (short):
-
-* Third-party audits for circuitsbounty program.
-* Timelock & multisig for emergency upgrades. 
-
----
-
-<a name="dev-guide"></a>
-
-## 8) Developer & integration guide (SDK, worker, indexer)
-
-### 8.1 Repo layout (recommended)
-
-```
-zephyr-mixer/
-├── circuits/           # Cairo ZK circuits (mixer, range proofs)
-├── contracts/          # Cairo contracts
-├── web-app/            # React frontend + WASM worker integration
-├── proof-service/      # Prover pool code (optional)
-├── sdk/                # TypeScript SDK
-├── tests/              # Tests (protostar / pytest)
-└── docs/               # Te:contentReference[oaicite:77]{index=77} diagrams
-```
-
-(Work plan and folder plan in the design brief). 
-
-### 8.2 Local dev & toolchain (quickstart)
-
-*Suggested environment (from brief)*: Python virtualenv, `cairo-lang`, `starknet-devnet`, `protostar`, Node.js for web. Example init steps from the brief:
-
-```bash
-# clone starter
-git clone https://github.com/starknet-edu/starknet-cairo-template
-cd zephyr-mixer
-
-# python env
-python -m venv venv
-source venv/bin/activate
-pip install cairo-lang protostar pytest-:contentReference[oaicite:79]{index=79}end)
-npm install
-```
-
-(See brief for full commands & versions). 
-
-### 8.3 SDK & worker API (example)
-
-* `zephyr.deposit({commitment, amount})`
-* `zephyr.prove({secret, recipient, amount})` → returns proof + publicInputs
-* `zephyr.withdraw({proof, publicInputs})`
-
-Worker messaging interface  described in the doc and recommended for browser WASM workers. 
-
----
-
-<a name="testing-deploy"></a>
-
-## 9) Testing, deployment & gas notes
-
-### 9.1 Tests
-
-* Unit tests for circuits, contract simulr`and`pytest`. Example test entrypoints included in the brief. 
-
-### 9.2 Deploy scripts & sample steps
-
-* Use `starkli` / `starknet` CLI for compile & deploy sequen are provided in the plan). Example deploy steps were included. 
-
-### 9.3 Gas & costs (prototype estimates)
-
-* Deposit: ~450k gas (approx $2–$5 at prototype costs)
-* Withdrawal (with verification): ~800k gas (approx $3–$8).
-* These are prototype-level re-benchmarked on current Starknet costs before mainnet launch. 
-
----
-
-<a name="roadmap"></a>
-
-## 10) Roadmap, governance & tokenomics (sumVP)**: core circuits + deposit/withdraw on testnet, WASM prover. : Range proofs, partial withdrawals, prover pool & attestations. 
-
-* **Phase 2**: DeFi composabilal, private DEX), NFT minting with proofs, DAO governance stack. 
-* **G DAO, timelocks, proposal lifecycle (7d vote, 2d execute delay). 
-
-**Fee model (prototype)**: base_fee + variable_fee (inverse to anonymity set) + urgency_fee. Distribution: 70% 10% sequencers (prototype numbers — adjustable via governance). 
-
----
-
-<a name="contributing"></a>
-
-## 11) Contributing, License, Contact
-
-* **Contributing**: Please open issues & PRs. See `CONTRIBUTING.md` for developer notes (add tests, follow Cairo style, add circuit tests).
-* **Licensl exception (proposal in brief). Confirm license in repository. 
-* **Contact**: See project briead / hackathon contact: `omar@starknet.org` in original brief). 
