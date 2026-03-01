@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { WalletProvider } from "@/contexts/WalletProvider";
 import { ZephyrMockProvider } from "@/mock/zephyrMockProvider";
 import AppLayout from "@/components/AppLayout";
-import LandingPage from "@/pages/Landing";
+import LandingPage from "@/pages/Index";
 import WalletPage from "@/pages/WalletPage";
 import DepositPage from "@/pages/DepositPage";
 import WithdrawPage from "@/pages/WithdrawPage";
