@@ -4,11 +4,13 @@ import { Wallet as WalletIcon, Shield, ArrowRight, Activity } from "lucide-react
 import { PageHeader, StatusBadge, InfoTooltip } from "@/components/ui/page-helpers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useShieldedBalance, useAnonymitySet, useActivityLog } from "@/hooks/useZephyr";
+import { useWallet } from "@/contexts/WalletProvider";
 
 export default function WalletPage() {
   const { data: balance } = useShieldedBalance();
   const { data: anonymity } = useAnonymitySet();
   const activity = useActivityLog();
+  const { status } = useWallet();
 
   const privacyLevel = anonymity
     ? anonymity.poolSize > 20000
@@ -36,8 +38,8 @@ export default function WalletPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold mb-1">0.0000 <span className="text-lg text-muted-foreground">strkBTC</span></div>
-            <p className="text-xs text-muted-foreground mb-4">Connect wallet to see balance</p>
+            <div className="text-3xl font-bold mb-1">{status.publicBalance ?? "0.0000"} <span className="text-lg text-muted-foreground">strkBTC</span></div>
+            <p className="text-xs text-muted-foreground mb-4">{status.isConnected ? (status.isDemo ? "Demo balance" : "On-chain balance") : "Connect wallet to see balance"}</p>
             <Link
               to="/deposit"
               className="inline-flex items-center space-x-2 px-4 py-2 bg-gradient-primary rounded-lg text-sm font-medium transition-all hover:shadow-glow-blue"

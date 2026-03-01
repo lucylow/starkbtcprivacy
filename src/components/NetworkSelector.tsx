@@ -9,8 +9,8 @@ import {
 import {
   CHAIN_ID,
   Network,
-  useWalletConnection,
 } from "@/hooks/useWalletConnection";
+import { useWallet } from "@/contexts/WalletProvider";
 import { AlertTriangle } from "lucide-react";
 
 interface NetworkSelectorProps {
@@ -32,7 +32,7 @@ const NETWORK_COLORS: Record<Network, string> = {
 export const NetworkSelector: React.FC<NetworkSelectorProps> = ({
   className = "",
 }) => {
-  const { status, switchNetwork } = useWalletConnection();
+  const { status, switchNetwork } = useWallet();
 
   const currentNetwork: Network = status.chainId
     ? (["mainnet", "sepolia", "devnet"] as Network[]).find(
