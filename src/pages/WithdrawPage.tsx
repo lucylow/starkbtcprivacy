@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { useProver } from "@/hooks/useProver";
 import { useLocalUtxos } from "@/hooks/useZephyr";
+import { useWallet } from "@/contexts/WalletProvider";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
 
@@ -19,6 +20,7 @@ export default function WithdrawPage() {
   const [selectedUtxo, setSelectedUtxo] = useState<string | null>(null);
   const utxos = useLocalUtxos().filter((u) => !u.spent);
   const { execute, reset, stage, progress, progressLabel, receipt, error } = useProver();
+  const { adjustDemoBalance } = useWallet();
   const { toast } = useToast();
 
   const chosen = utxos.find((u) => u.id === selectedUtxo);
@@ -28,10 +30,15 @@ export default function WithdrawPage() {
     setCurrentStep(2);
     const tx = await execute(recipient, chosen);
     if (tx) {
+      // Add back to public balance
+      const btcAmount = Number(chosen.amount) / 1e8;
+      adjustDemoBalance(btcAmount);
       setCurrentStep(3);
       toast({ title: "Withdrawal successful!", description: "Your strkBTC has been unshielded." });
     }
   };
+
+  const totalShielded = utxos.reduce((sum, u) => sum + Number(u.amount), 0) / 1e8;
 
   return (
     <>
@@ -64,27 +71,39 @@ export default function WithdrawPage() {
                 </div>
 
                 <div>
-                  <label className="text-sm text-muted-foreground mb-2 block">Select Shielded Note</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm text-muted-foreground">Select Shielded Note</label>
+                    <span className="text-xs text-muted-foreground">Total shielded: <span className="font-mono text-foreground">{totalShielded.toFixed(4)}</span> strkBTC</span>
+                  </div>
                   {utxos.length === 0 ? (
                     <div className="glass rounded-lg p-4 text-sm text-muted-foreground text-center">
                       No shielded notes found. <Link to="/deposit" className="text-primary hover:underline">Make a deposit first</Link>.
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {utxos.map((u) => (
-                        <button
-                          key={u.id}
-                          onClick={() => setSelectedUtxo(u.id)}
-                          className={`w-full text-left glass rounded-lg p-3 transition-colors ${
-                            selectedUtxo === u.id ? "border-primary ring-1 ring-primary" : "border-border hover:bg-muted"
-                          }`}
-                        >
-                          <div className="flex justify-between items-center">
-                            <span className="font-mono text-sm">{(Number(u.amount) / 1e8).toFixed(4)} strkBTC</span>
-                            <span className="text-xs text-muted-foreground">{new Date(u.timestamp).toLocaleDateString()}</span>
-                          </div>
-                        </button>
-                      ))}
+                      {utxos.map((u) => {
+                        const ageHours = Math.round((Date.now() - u.timestamp) / 3600000);
+                        const privacyOk = ageHours >= 72;
+                        return (
+                          <button
+                            key={u.id}
+                            onClick={() => setSelectedUtxo(u.id)}
+                            className={`w-full text-left glass rounded-lg p-3 transition-colors border ${
+                              selectedUtxo === u.id ? "border-primary ring-1 ring-primary" : "border-border hover:bg-muted"
+                            }`}
+                          >
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <span className="font-mono text-sm font-medium">{(Number(u.amount) / 1e8).toFixed(4)} strkBTC</span>
+                                <span className="text-xs text-muted-foreground ml-2">({ageHours}h old)</span>
+                              </div>
+                              <StatusBadge variant={privacyOk ? "success" : "warning"}>
+                                {privacyOk ? "Ready" : `Wait ${72 - ageHours}h`}
+                              </StatusBadge>
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -116,6 +135,7 @@ export default function WithdrawPage() {
                 <div className="glass rounded-lg p-3 text-xs space-y-1">
                   <div className="flex justify-between"><span className="text-muted-foreground">Amount</span><span className="font-mono">{chosen ? (Number(chosen.amount) / 1e8).toFixed(4) : "—"} strkBTC</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Recipient</span><span className="font-mono truncate max-w-[200px]">{recipient}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Note ID</span><span className="font-mono truncate max-w-[200px]">{chosen?.id}</span></div>
                 </div>
 
                 <div className="flex gap-3">
