@@ -1,12 +1,7 @@
-Nice — I inspected the repository and put together a drop-in, **developer-friendly README** you can paste into `README.md` (or use as a README-redraft PR). It keeps the repo’s technical depth (Cairo contracts, prover/WASM, Merkle accumulator) while adding clear diagrams, quickstart steps, and audited-safety notes.
 
-I cite the repo page I read so maintainers can verify where I pulled the base info. ([GitHub][1])
 
----
+#  **Zephyr — ZK-Private Bitcoin on Starknet**
 
-# README (improved) — **Zephyr / starkbtcprivacy**
-
-> **Zephyr — ZK-Private Bitcoin on Starknet**
 > Non-custodial, STARK-proof privacy layer for bridged Bitcoin on Starknet. Shield bridged BTC into a Merkle accumulator, generate STARK ownership proofs (WASM or prover pool), and withdraw privately without linking deposits → withdrawals. ([GitHub][1])
 
 ---
@@ -232,19 +227,4 @@ Add CI to run Cairo tests (`protostar` or `starknet-devnet` integration) and inc
 * **Governance**: outline timelock / multisig parameters in repo docs.
 * **Contact / Support**: Open an issue or reach out to the maintainer on the repo page. ([GitHub][1])
 
----
-
-## Appendix — copy-paste assets & snippets
-
-**Mermaid blocks** (component & sequence) — already included above; drop them into README.
-**Commitment formula** (mono block):
-
-```text
-secret := random_bytes(32)
-nullifier := H_Poseidon(secret || salt)
-secret_hash := H_Pedersen(secret || nonce)
-commitment := Poseidon(secret_hash, amount_bucket, randomness)
-```
-
-**Verifier pseudocode (Cairo-style)** (included in section 6).
 
