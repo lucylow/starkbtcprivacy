@@ -26,14 +26,13 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({
 };
 
 const defaultWallet = {
-  status: { connected: false, address: null, chainId: null, isDemo: false },
-  connect: async () => {},
-  connectDemo: () => {},
-  disconnect: () => {},
-  switchNetwork: () => {},
+  status: { isConnected: false, isConnecting: false, supportedWallets: [], isDemo: false },
   connectWallet: async () => {},
-  disconnectWallet: () => {},
+  connectDemo: () => {},
+  disconnectWallet: async () => {},
+  switchNetwork: async () => {},
   refreshStatus: async () => {},
+  adjustDemoBalance: () => {},
 } as unknown as WalletConnection;
 
 export const useWallet = (): WalletConnection => {
