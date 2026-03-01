@@ -25,10 +25,18 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({
   );
 };
 
-export const useWallet = () => {
+const defaultWallet = {
+  status: { connected: false, address: null, chainId: null, isDemo: false },
+  connect: async () => {},
+  connectDemo: () => {},
+  disconnect: () => {},
+  switchNetwork: () => {},
+  connectWallet: async () => {},
+  disconnectWallet: () => {},
+  refreshStatus: async () => {},
+} as unknown as WalletConnection;
+
+export const useWallet = (): WalletConnection => {
   const context = useContext(WalletContext);
-  if (!context) {
-    throw new Error("useWallet must be used within WalletProvider");
-  }
-  return context;
+  return context ?? defaultWallet;
 };
