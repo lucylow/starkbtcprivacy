@@ -92,6 +92,7 @@ export default function HeroSection() {
               <motion.button
                 whileHover={{ scale: 1.05, boxShadow: '0 0 40px -10px hsl(217 91% 60% / 0.8)' }}
                 whileTap={{ scale: 0.95 }}
+                onClick={() => navigate('/wallet')}
                 className="px-8 py-4 bg-gradient-primary rounded-xl font-bold text-lg shadow-glow-blue transition-all"
               >
                 Start Mixing
@@ -99,6 +100,7 @@ export default function HeroSection() {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
+                onClick={() => { connectDemo(); navigate('/wallet'); }}
                 className="px-8 py-4 glass rounded-xl font-bold text-lg hover:bg-muted transition-colors"
               >
                 Watch Demo

@@ -80,6 +80,7 @@ export default function CTASection() {
               whileHover={{ scale: 1.05, boxShadow: '0 0 50px -10px hsl(217 91% 60% / 0.8)' }}
               whileTap={{ scale: 0.95 }}
               type="button"
+              onClick={() => navigate('/wallet')}
               className="px-10 py-4 bg-gradient-primary rounded-xl font-bold text-lg shadow-glow-blue flex items-center justify-center gap-2 transition-all"
               aria-label="Start mixing Bitcoin privately"
             >
@@ -90,10 +91,11 @@ export default function CTASection() {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               type="button"
+              onClick={() => { connectDemo(); navigate('/wallet'); }}
               className="px-10 py-4 glass rounded-xl font-bold text-lg hover:bg-muted transition-colors"
-              aria-label="Schedule a product demo"
+              aria-label="Try the demo"
             >
-              Schedule Demo
+              Try Demo
             </motion.button>
           </div>
 
