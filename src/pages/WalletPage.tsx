@@ -1,15 +1,32 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Wallet as WalletIcon, Shield, ArrowRight, Activity, Coins, TrendingUp, Copy, CheckCircle } from "lucide-react";
+import { Wallet as WalletIcon, Shield, ArrowRight, Activity, Coins, TrendingUp, Copy, CheckCircle, Fuel } from "lucide-react";
 import { PageHeader, StatusBadge, InfoTooltip } from "@/components/ui/page-helpers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useShieldedBalance, useAnonymitySet, useActivityLog } from "@/hooks/useZephyr";
+import { usePriceFeed } from "@/hooks/useProtocolData";
 import { useWallet } from "@/contexts/WalletProvider";
 import { useToast } from "@/hooks/use-toast";
+
+function MiniSparkline({ data, className = "" }: { data: number[]; className?: string }) {
+  if (!data.length) return null;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const w = 120;
+  const h = 32;
+  const points = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - ((v - min) / range) * h}`).join(" ");
+  return (
+    <svg width={w} height={h} className={className} viewBox={`0 0 ${w} ${h}`}>
+      <polyline points={points} fill="none" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
 
 export default function WalletPage() {
   const { data: balance } = useShieldedBalance();
   const { data: anonymity } = useAnonymitySet();
+  const { data: prices } = usePriceFeed();
   const activity = useActivityLog();
   const { status } = useWallet();
   const { toast } = useToast();
@@ -37,6 +54,9 @@ export default function WalletPage() {
     ? (parseFloat(status.publicBalance || "0") + parseFloat(totalShielded)).toFixed(4)
     : "0.0000";
 
+  const btcPrice = prices?.btc.price ?? 67_342;
+  const usdValue = (parseFloat(totalPortfolio) * btcPrice).toLocaleString(undefined, { maximumFractionDigits: 0 });
+
   return (
     <>
       <PageHeader
@@ -54,9 +74,7 @@ export default function WalletPage() {
           <button onClick={handleCopyAddress} className="text-muted-foreground hover:text-foreground transition-colors">
             {copied ? <CheckCircle className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
           </button>
-          {status.isDemo && (
-            <StatusBadge variant="warning">Demo</StatusBadge>
-          )}
+          {status.isDemo && <StatusBadge variant="warning">Demo</StatusBadge>}
           {status.blockHeight && (
             <span className="text-[10px] text-muted-foreground font-mono">
               Block #{status.blockHeight.toLocaleString()}
@@ -65,7 +83,7 @@ export default function WalletPage() {
         </div>
       )}
 
-      {/* Portfolio Total */}
+      {/* Portfolio Total + Price Ticker */}
       {status.isConnected && (
         <Card className="glass border-border mb-6">
           <CardContent className="pt-5 pb-4">
@@ -75,9 +93,25 @@ export default function WalletPage() {
                   <TrendingUp className="w-3 h-3" /> Total Portfolio
                 </div>
                 <div className="text-4xl font-bold">{totalPortfolio} <span className="text-lg text-muted-foreground">strkBTC</span></div>
+                <div className="text-sm text-muted-foreground mt-1">≈ ${usdValue} USD</div>
               </div>
-              <div className="text-right text-xs text-muted-foreground">
-                <div>≈ ${(parseFloat(totalPortfolio) * 67_342).toLocaleString(undefined, { maximumFractionDigits: 0 })} USD</div>
+              <div className="text-right space-y-1">
+                {prices && (
+                  <>
+                    <div className="flex items-center gap-2 justify-end">
+                      <span className="text-xs text-muted-foreground">BTC</span>
+                      <span className="text-sm font-mono font-bold">${prices.btc.price.toLocaleString()}</span>
+                      <span className={`text-xs font-medium ${prices.btc.change24h >= 0 ? "text-success" : "text-destructive"}`}>
+                        {prices.btc.change24h >= 0 ? "+" : ""}{prices.btc.change24h}%
+                      </span>
+                    </div>
+                    <MiniSparkline data={prices.priceHistory} className="text-primary ml-auto" />
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground justify-end mt-1">
+                      <Fuel className="w-3 h-3" />
+                      Gas: {prices.gas.low} / {prices.gas.medium} / {prices.gas.high} gwei
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </CardContent>
@@ -96,10 +130,7 @@ export default function WalletPage() {
           <CardContent>
             <div className="text-3xl font-bold mb-1">{status.publicBalance ?? "0.0000"} <span className="text-lg text-muted-foreground">strkBTC</span></div>
             <p className="text-xs text-muted-foreground mb-4">{status.isConnected ? (status.isDemo ? "Demo balance" : "On-chain balance") : "Connect wallet to see balance"}</p>
-            <Link
-              to="/deposit"
-              className="inline-flex items-center space-x-2 px-4 py-2 bg-gradient-primary rounded-lg text-sm font-medium transition-all hover:shadow-glow-blue"
-            >
+            <Link to="/deposit" className="inline-flex items-center space-x-2 px-4 py-2 bg-gradient-primary rounded-lg text-sm font-medium transition-all hover:shadow-glow-blue">
               <span>Shield BTC</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
@@ -125,10 +156,7 @@ export default function WalletPage() {
             <p className="text-xs text-muted-foreground mb-4">
               {balance?.utxoCount ?? 0} shielded note{(balance?.utxoCount ?? 0) !== 1 ? "s" : ""}
             </p>
-            <Link
-              to="/withdraw"
-              className="inline-flex items-center space-x-2 px-4 py-2 glass rounded-lg text-sm font-medium hover:bg-muted transition-colors"
-            >
+            <Link to="/withdraw" className="inline-flex items-center space-x-2 px-4 py-2 glass rounded-lg text-sm font-medium hover:bg-muted transition-colors">
               <span>Withdraw</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
@@ -136,8 +164,8 @@ export default function WalletPage() {
         </Card>
       </div>
 
-      {/* Token Balances */}
-      {status.tokenBalances && (
+      {/* Token Balances with live prices */}
+      {status.isConnected && (
         <Card className="glass border-border mb-8">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center space-x-2">
@@ -147,12 +175,27 @@ export default function WalletPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {Object.entries(status.tokenBalances).map(([token, amount]) => (
-                <div key={token} className="glass rounded-lg p-3">
-                  <div className="text-xs text-muted-foreground mb-1">{token}</div>
-                  <div className="text-sm font-bold font-mono">{amount}</div>
-                </div>
-              ))}
+              {status.tokenBalances && Object.entries(status.tokenBalances).map(([token, amount]) => {
+                const tokenPrice = prices
+                  ? token === "STRK" ? prices.strk.price
+                  : token === "ETH" ? prices.eth.price
+                  : token === "strkBTC" ? prices.strkBTC.price
+                  : token === "USDC" ? 1
+                  : 0
+                  : 0;
+                const usd = (parseFloat(amount) * tokenPrice);
+                return (
+                  <div key={token} className="glass rounded-lg p-3">
+                    <div className="text-xs text-muted-foreground mb-1">{token}</div>
+                    <div className="text-sm font-bold font-mono">{amount}</div>
+                    {tokenPrice > 0 && (
+                      <div className="text-[10px] text-muted-foreground mt-0.5">
+                        ≈ ${usd.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
