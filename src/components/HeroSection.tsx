@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Shield, Zap, Lock, ArrowRightLeft } from 'lucide-react';
 import CountUp from 'react-countup';
+import { useNavigate } from 'react-router-dom';
+import { useWallet } from '@/contexts/WalletProvider';
 import InteractiveMixerDemo from './InteractiveMixerDemo';
 import NetworkVisualizer from './NetworkVisualizer';
 
@@ -26,6 +28,8 @@ function StatCard({ icon, label, value, subtext }: StatCardProps) {
 }
 
 export default function HeroSection() {
+  const navigate = useNavigate();
+  const { connectDemo } = useWallet();
   const [stats, setStats] = useState({
     totalMixed: 847.5,
     anonymitySet: 12.4,
@@ -88,6 +92,7 @@ export default function HeroSection() {
               <motion.button
                 whileHover={{ scale: 1.05, boxShadow: '0 0 40px -10px hsl(217 91% 60% / 0.8)' }}
                 whileTap={{ scale: 0.95 }}
+                onClick={() => navigate('/wallet')}
                 className="px-8 py-4 bg-gradient-primary rounded-xl font-bold text-lg shadow-glow-blue transition-all"
               >
                 Start Mixing
@@ -95,6 +100,7 @@ export default function HeroSection() {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
+                onClick={() => { connectDemo(); navigate('/wallet'); }}
                 className="px-8 py-4 glass rounded-xl font-bold text-lg hover:bg-muted transition-colors"
               >
                 Watch Demo
