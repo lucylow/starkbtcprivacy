@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Shield, Zap, Lock, ArrowRightLeft } from 'lucide-react';
 import CountUp from 'react-countup';
+import { useNavigate } from 'react-router-dom';
+import { useWallet } from '@/contexts/WalletProvider';
 import InteractiveMixerDemo from './InteractiveMixerDemo';
 import NetworkVisualizer from './NetworkVisualizer';
 

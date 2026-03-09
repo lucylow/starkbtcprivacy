@@ -1,6 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Zap, Shield, Users } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useWallet } from '@/contexts/WalletProvider';
 
 interface FeatureHighlightProps {
   icon: React.ReactNode;
