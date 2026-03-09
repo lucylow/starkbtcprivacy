@@ -28,6 +28,8 @@ function StatCard({ icon, label, value, subtext }: StatCardProps) {
 }
 
 export default function HeroSection() {
+  const navigate = useNavigate();
+  const { connectDemo } = useWallet();
   const [stats, setStats] = useState({
     totalMixed: 847.5,
     anonymitySet: 12.4,

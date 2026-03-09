@@ -23,6 +23,8 @@ function FeatureHighlight({ icon, title, description }: FeatureHighlightProps) {
 }
 
 export default function CTASection() {
+  const navigate = useNavigate();
+  const { connectDemo } = useWallet();
   return (
     <section className="py-24 px-4 relative overflow-hidden">
       {/* Background Effects */}
