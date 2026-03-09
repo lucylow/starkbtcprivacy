@@ -1,12 +1,14 @@
 import React from "react";
-import { Eye, TrendingUp, Shield, Info, BarChart3 } from "lucide-react";
+import { Eye, Shield, Info, BarChart3, Zap } from "lucide-react";
 import { PageHeader, StatusBadge, InfoTooltip } from "@/components/ui/page-helpers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useAnonymitySet, useLocalUtxos } from "@/hooks/useZephyr";
+import { useProtocolStats } from "@/hooks/useProtocolData";
 
 export default function PrivacyPage() {
   const { data: anonymity } = useAnonymitySet();
+  const { data: stats } = useProtocolStats();
   const utxos = useLocalUtxos().filter((u) => !u.spent);
 
   const oldestUtxo = utxos.reduce((min, u) => Math.min(min, u.timestamp), Date.now());
@@ -46,6 +48,42 @@ export default function PrivacyPage() {
           </p>
         </CardContent>
       </Card>
+
+      {/* Live Network Stats from edge function */}
+      {stats && (
+        <Card className="glass border-border mb-6">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center space-x-2">
+              <Zap className="w-4 h-4 text-primary" />
+              <span>Live Network</span>
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">TVL</div>
+                <div className="text-lg font-bold">{stats.tvl.toLocaleString()} BTC</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Total Users</div>
+                <div className="text-lg font-bold">{stats.totalUsers.toLocaleString()}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Merkle Depth</div>
+                <div className="text-lg font-bold">{stats.merkleTreeDepth}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Network Fee</div>
+                <div className="text-lg font-bold">{stats.networkFeeGwei} gwei</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid md:grid-cols-2 gap-6 mb-6">
         {/* Global Pool Metrics */}
