@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { connect, disconnect } from "@starknet-io/get-starknet";
 import type { StarknetWindowObject } from "@starknet-io/get-starknet";
 import { Account, RpcProvider } from "starknet";
@@ -14,9 +14,7 @@ export interface WalletStatus {
   supportedWallets: StarknetWindowObject[];
   isDemo: boolean;
   publicBalance?: string;
-  /** Extra mock token balances for demo */
   tokenBalances?: Record<string, string>;
-  /** Block height for demo */
   blockHeight?: number;
 }
 
@@ -35,12 +33,55 @@ export interface WalletConnection {
   disconnectWallet: () => Promise<void>;
   switchNetwork: (network: Network) => Promise<void>;
   refreshStatus: () => Promise<void>;
-  /** Update public balance after mock deposit/withdraw */
   adjustDemoBalance: (deltaBtc: number) => void;
 }
 
 const DEMO_ADDRESS = "0x04a3B82D7138C3FE9aE6Da24b3E012Bc7Fc8eF5dC91A72EfB7469cA08DfE249A";
 const DEMO_STORAGE_KEY = "zephyr_demo_active";
+
+const RPC_URLS: Record<Network, string> = {
+  mainnet: "https://starknet-mainnet.public.blastapi.io",
+  sepolia: "https://starknet-sepolia.public.blastapi.io",
+  devnet: "http://localhost:5050/rpc",
+};
+
+/**
+ * Extract address from various wallet object shapes.
+ * Different wallet providers expose the address differently.
+ */
+function extractAddress(wallet: StarknetWindowObject): string | undefined {
+  const w = wallet as any;
+  return (
+    w.selectedAddress ??
+    w.account?.address ??
+    w.provider?.selectedAddress ??
+    undefined
+  );
+}
+
+/**
+ * Build a starknet.js Account from a connected wallet + provider.
+ * Returns undefined if the wallet doesn't expose enough info.
+ */
+function buildAccount(
+  wallet: StarknetWindowObject,
+  address: string,
+  rpcProvider: RpcProvider,
+): Account | undefined {
+  try {
+    const w = wallet as any;
+    // Prefer wallet's own account if it has execute()
+    if (w.account && typeof w.account.execute === "function") {
+      return w.account as Account;
+    }
+    // Fall back to constructing one from the wallet's provider
+    const signer = w.provider ?? w;
+    return new Account(rpcProvider, address, signer);
+  } catch (err) {
+    console.warn("[Zephyr] Could not build Account object:", err);
+    return undefined;
+  }
+}
 
 export const useWalletConnection = (
   network: Network = "sepolia",
@@ -52,21 +93,74 @@ export const useWalletConnection = (
     isDemo: false,
   });
   const { toast } = useToast();
-
-  const RPC_URLS: Record<Network, string> = useMemo(
-    () => ({
-      mainnet: "https://starknet-mainnet.public.blastapi.io",
-      sepolia: "https://starknet-sepolia.public.blastapi.io",
-      devnet: "http://localhost:5050/rpc",
-    }),
-    [],
-  );
+  const walletRef = useRef<StarknetWindowObject | null>(null);
 
   const provider = useMemo(() => {
     return new RpcProvider({ nodeUrl: RPC_URLS[network] });
-  }, [network, RPC_URLS]);
+  }, [network]);
 
-  // Auto-reconnect demo on mount
+  // ─── Event handlers for live wallet ───────────────────────────────
+  const handleAccountsChanged = useCallback(
+    (accounts?: string[]) => {
+      console.info("[Zephyr] accountsChanged", accounts);
+      const newAddr = accounts?.[0];
+      if (!newAddr) {
+        // Wallet locked or disconnected
+        setStatus((prev) => ({
+          ...prev,
+          isConnected: false,
+          address: undefined,
+          account: undefined,
+        }));
+        toast({ title: "Wallet Disconnected", description: "Account no longer available." });
+        return;
+      }
+      setStatus((prev) => {
+        const acct = walletRef.current
+          ? buildAccount(walletRef.current, newAddr, provider)
+          : undefined;
+        return { ...prev, address: newAddr, account: acct };
+      });
+    },
+    [provider, toast],
+  );
+
+  const handleNetworkChanged = useCallback(
+    (newChainId?: string) => {
+      console.info("[Zephyr] networkChanged", newChainId);
+      setStatus((prev) => ({ ...prev, chainId: newChainId }));
+
+      const expectedChainId = CHAIN_ID[network.toUpperCase() as keyof typeof CHAIN_ID];
+      if (newChainId && newChainId !== expectedChainId) {
+        toast({
+          variant: "destructive",
+          title: "Network Mismatch",
+          description: `Your wallet is on a different network. Please switch to Starknet ${network}.`,
+        });
+      }
+    },
+    [network, toast],
+  );
+
+  // Attach / detach wallet event listeners
+  useEffect(() => {
+    const wallet = walletRef.current as any;
+    if (!wallet) return;
+
+    wallet.on?.("accountsChanged", handleAccountsChanged);
+    wallet.on?.("networkChanged", handleNetworkChanged);
+
+    return () => {
+      try {
+        wallet.off?.("accountsChanged", handleAccountsChanged);
+        wallet.off?.("networkChanged", handleNetworkChanged);
+      } catch {
+        // Some wallets don't support off()
+      }
+    };
+  }, [handleAccountsChanged, handleNetworkChanged]);
+
+  // ─── Auto-reconnect demo on mount ─────────────────────────────────
   useEffect(() => {
     const wasDemo = localStorage.getItem(DEMO_STORAGE_KEY);
     if (wasDemo === "true" && !status.isConnected) {
@@ -75,8 +169,27 @@ export const useWalletConnection = (
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const refreshStatus = useCallback(async () => {}, []);
+  // ─── refreshStatus ────────────────────────────────────────────────
+  const refreshStatus = useCallback(async () => {
+    const wallet = walletRef.current;
+    if (!wallet) return;
+    const address = extractAddress(wallet);
+    if (!address) return;
 
+    try {
+      const chainId = await (wallet as any).provider?.getChainId?.();
+      setStatus((prev) => ({
+        ...prev,
+        address,
+        chainId: chainId ?? prev.chainId,
+        account: buildAccount(wallet, address, provider),
+      }));
+    } catch (err) {
+      console.warn("[Zephyr] refreshStatus failed:", err);
+    }
+  }, [provider]);
+
+  // ─── connectDemo ──────────────────────────────────────────────────
   const connectDemo = useCallback(() => {
     seedDemoData();
     const initialBalance = "2.4500";
@@ -89,6 +202,7 @@ export const useWalletConnection = (
     });
   }, [toast]);
 
+  // ─── adjustDemoBalance ────────────────────────────────────────────
   const adjustDemoBalance = useCallback((deltaBtc: number) => {
     setStatus((prev) => {
       if (!prev.isDemo) return prev;
@@ -99,39 +213,108 @@ export const useWalletConnection = (
     });
   }, []);
 
+  // ─── connectWallet ────────────────────────────────────────────────
   const connectWallet = useCallback(
     async (_walletId?: string) => {
       if (status.isConnecting) return;
       setStatus((prev) => ({ ...prev, isConnecting: true }));
+
       try {
-        const wallet = await connect({ modalMode: "alwaysAsk", modalTheme: "dark" });
-        if (!wallet) throw new Error("No wallet selected");
-        const address = (wallet as any).selectedAddress || (wallet as any).account?.address;
-        if (!address) throw new Error("No address returned from wallet");
+        console.debug("[Zephyr] connectAttempt");
+
+        const wallet = await connect({
+          modalMode: "alwaysAsk",
+          modalTheme: "dark",
+        });
+
+        if (!wallet) {
+          throw new Error("No wallet selected. Please choose Argent or Braavos.");
+        }
+
+        // Enable the wallet (some versions require this)
+        try {
+          await (wallet as any).enable?.({ starknetVersion: "v5" });
+        } catch {
+          // enable() not available or already enabled — continue
+        }
+
+        const address = extractAddress(wallet);
+        if (!address) {
+          throw new Error(
+            "Wallet connected but no address returned. Please unlock your wallet and try again.",
+          );
+        }
+
+        // Build Account object for transaction signing
+        const account = buildAccount(wallet, address, provider);
+
+        // Try to get chainId
+        let chainId: string | undefined;
+        try {
+          chainId = await (wallet as any).provider?.getChainId?.();
+        } catch {
+          // chainId not available — non-fatal
+        }
+
+        walletRef.current = wallet;
         localStorage.removeItem(DEMO_STORAGE_KEY);
-        setStatus({
+
+        const newStatus: WalletStatus = {
           isConnected: true,
           address: String(address),
-          chainId: undefined,
-          account: undefined,
+          chainId,
+          account,
           wallet,
           isConnecting: false,
           supportedWallets: [wallet],
           isDemo: false,
-        });
-        toast({ title: "Wallet Connected", description: `Connected with ${wallet.id}` });
+        };
+
+        setStatus(newStatus);
+        console.info("[Zephyr] connected", { address, chainId });
+
+        // Warn if wrong network
+        const expectedChainId = CHAIN_ID[network.toUpperCase() as keyof typeof CHAIN_ID];
+        if (chainId && chainId !== expectedChainId) {
+          toast({
+            variant: "destructive",
+            title: "Network Mismatch",
+            description: `Switch your wallet to Starknet ${network} for this dApp.`,
+          });
+        } else {
+          toast({ title: "Wallet Connected", description: `Connected with ${wallet.id ?? "wallet"}` });
+        }
       } catch (error: any) {
-        console.error("Wallet connection failed:", error);
-        toast({ variant: "destructive", title: "Connection Failed", description: error?.message ?? "Failed to connect wallet" });
+        console.error("[Zephyr] connectFailed:", error);
+
+        // User-friendly error messages
+        let message = error?.message ?? "Failed to connect wallet";
+        if (message.includes("User abort") || message.includes("reject")) {
+          message = "Connection cancelled. Please try again when ready.";
+        }
+
+        toast({
+          variant: "destructive",
+          title: "Connection Failed",
+          description: message,
+        });
         setStatus((prev) => ({ ...prev, isConnecting: false }));
       }
     },
-    [status.isConnecting, toast],
+    [status.isConnecting, toast, provider, network],
   );
 
+  // ─── disconnectWallet ─────────────────────────────────────────────
   const disconnectWallet = useCallback(async () => {
     try {
-      if (!status.isDemo) await disconnect();
+      if (!status.isDemo) {
+        try {
+          await disconnect();
+        } catch (err) {
+          console.warn("[Zephyr] disconnect() error (non-fatal):", err);
+        }
+      }
+      walletRef.current = null;
       localStorage.removeItem(DEMO_STORAGE_KEY);
       setStatus({
         isConnected: false,
@@ -145,23 +328,40 @@ export const useWalletConnection = (
       });
       toast({ title: "Wallet Disconnected" });
     } catch (error) {
-      console.error("Disconnect failed:", error);
+      console.error("[Zephyr] disconnect failed:", error);
     }
   }, [toast, status.isDemo]);
 
+  // ─── switchNetwork ────────────────────────────────────────────────
   const switchNetwork = useCallback(
     async (targetNetwork: Network) => {
       if (status.isDemo) {
         toast({ title: "Network Switched", description: `Switched to ${targetNetwork} (demo)` });
         return;
       }
-      if (!status.wallet) return;
+      const wallet = walletRef.current ?? status.wallet;
+      if (!wallet) {
+        toast({
+          variant: "destructive",
+          title: "No Wallet",
+          description: "Connect a wallet first to switch networks.",
+        });
+        return;
+      }
       try {
         const targetChainId = CHAIN_ID[targetNetwork.toUpperCase() as keyof typeof CHAIN_ID];
-        await (status.wallet as any).request?.({ type: "wallet_switchStarknetChain", params: { chainId: targetChainId } });
+        await (wallet as any).request?.({
+          type: "wallet_switchStarknetChain",
+          params: { chainId: targetChainId },
+        });
         toast({ title: "Network Switched", description: `Switched to ${targetNetwork}` });
       } catch (error: any) {
-        toast({ variant: "destructive", title: "Network Switch Failed", description: error?.message ?? "Failed to switch network" });
+        console.error("[Zephyr] switchNetwork failed:", error);
+        toast({
+          variant: "destructive",
+          title: "Network Switch Failed",
+          description: error?.message ?? "Failed to switch network. Please switch manually in your wallet.",
+        });
       }
     },
     [status.wallet, status.isDemo, toast],
@@ -169,6 +369,8 @@ export const useWalletConnection = (
 
   return { status, connectWallet, connectDemo, disconnectWallet, switchNetwork, refreshStatus, adjustDemoBalance };
 };
+
+// ─── Helpers ──────────────────────────────────────────────────────────
 
 function buildDemoStatus(balance: string): WalletStatus {
   return {

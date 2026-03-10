@@ -1,5 +1,6 @@
 import { Account, uint256 } from "starknet";
 import { CONTRACTS } from "@/starknet/contracts";
+import { sendSignedTx } from "./sendSignedTx";
 
 export interface WithdrawParams {
   account: Account;
@@ -16,12 +17,12 @@ export interface WithdrawResult {
 
 /**
  * Submit a withdrawal to the ZephyrMixer contract.
- * 
+ *
  * The withdrawal requires a valid ZK proof demonstrating:
  * 1. Knowledge of a secret for a commitment in the Merkle tree
  * 2. The commitment corresponds to the claimed amount
  * 3. The nullifier hash is correctly derived
- * 
+ *
  * The mixer contract will:
  * - Verify the ZK proof via the verifier contract
  * - Check the nullifier hasn't been spent (prevents double-spend)
@@ -43,7 +44,6 @@ export async function submitWithdraw({
 
   const amount = uint256.bnToUint256(amountSats);
 
-  // Build calldata: nullifier_hash, recipient, amount_low, amount_high, merkle_root, proof_len, ...proof
   const calldata = [
     nullifierHash,
     recipient,
@@ -60,7 +60,7 @@ export async function submitWithdraw({
     calldata,
   };
 
-  const res = await account.execute(call);
+  const res = await sendSignedTx(account, call);
 
   return {
     txHash: res.transaction_hash,

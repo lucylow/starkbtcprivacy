@@ -1,5 +1,6 @@
 import { Account, uint256 } from "starknet";
 import { CONTRACTS } from "@/starknet/contracts";
+import { sendSignedTx } from "./sendSignedTx";
 
 export interface DepositParams {
   account: Account;
@@ -13,11 +14,11 @@ export interface DepositResult {
 
 /**
  * Submit a deposit to the ZephyrMixer contract.
- * 
+ *
  * Prerequisites:
  * 1. User must have approved the mixer contract to spend `amountSats` of the ERC20 token.
  * 2. Commitment must be generated off-chain: Poseidon(secret, nullifier, amount_low, amount_high, randomness)
- * 
+ *
  * The mixer contract will:
  * - Transfer tokens from the user to the contract via transferFrom
  * - Record the commitment in the Merkle tree
@@ -41,7 +42,7 @@ export async function submitDeposit({
     calldata: [commitment, amount.low.toString(), amount.high.toString()],
   };
 
-  const res = await account.execute(call);
+  const res = await sendSignedTx(account, call);
 
   return {
     txHash: res.transaction_hash,
@@ -74,6 +75,6 @@ export async function approveToken({
     calldata: [mixerAddress, amount.low.toString(), amount.high.toString()],
   };
 
-  const res = await account.execute(call);
+  const res = await sendSignedTx(account, call);
   return res.transaction_hash;
 }
